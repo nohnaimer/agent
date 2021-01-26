@@ -1,0 +1,34 @@
+port: 2021
+sentry:
+  dsn: "http://4c25b618f802468ba08f23d6d406e16a@sentry.io/3"
+
+dhcp:
+  enabled: true
+  path:
+    prod: "/Users/and1/Desktop/go/prod/dhcp"
+    temp: "/Users/and1/Desktop/go/dev/dhcp"
+
+smtp:
+  enabled: true
+  path:
+    temp: "/Users/and1/Desktop/go/dev/smtp"
+    forward: "/Users/and1/Desktop/go/prod/smtp"
+    aliases: "/Users/and1/Desktop/go/prod/smtp"
+
+squid:
+  enabled: true
+  path:
+    prod: "/Users/and1/Desktop/go/prod/squid"
+    temp: "/Users/and1/Desktop/go/dev/squid"
+
+techmail:
+  enabled: true
+  path:
+    prod: "/Users/and1/Desktop/go/prod/techmail"
+    temp: "/Users/and1/Desktop/go/dev/techmail"
+
+samba:
+  enabled: true
+  path:
+    prod: "/Users/and1/Desktop/go/prod/samba"
+    temp: "/Users/and1/Desktop/go/dev/samba"
