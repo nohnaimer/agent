@@ -65,7 +65,7 @@ type Config struct {
 }
 
 type dataString struct {
-	Data map[string]string
+	Data map[string]interface{}
 }
 
 type dataSlice struct {
@@ -542,7 +542,7 @@ func actionDownload(c *routing.Context, prod string, temp string) error {
 	lines := data.Data
 	for name, line := range lines {
 		recv := temp + "/" + name + ".recv"
-		if err := ioutil.WriteFile(recv, []byte(line), 0644); err != nil {
+		if err := ioutil.WriteFile(recv, []byte(line.(string)), 0644); err != nil {
 			return err
 		}
 
@@ -705,7 +705,7 @@ func actionSmtpDownload(c *routing.Context) error {
 	aliases := cfg.Smtp.Path.Aliases
 	for name, line := range lines {
 		recv := temp + "/" + name + ".recv"
-		if err := ioutil.WriteFile(recv, []byte(line), 0644); err != nil {
+		if err := ioutil.WriteFile(recv, []byte(line.(string)), 0644); err != nil {
 			return err
 		}
 
@@ -730,7 +730,7 @@ func actionSmtpCreate(c *routing.Context) error {
 	aliases := cfg.Smtp.Path.Aliases
 	for name, line := range lines {
 		recv := temp + "/" + name + ".recv"
-		if err := addDataToFile(recv, line); err != nil {
+		if err := addDataToFile(recv, line.(string)); err != nil {
 			return err
 		}
 
@@ -802,17 +802,17 @@ func actionSmtpForwardDelete(c *routing.Context) error {
 	aliases := cfg.Smtp.Path.Aliases
 	for name, line := range lines {
 		if name == "forward_name" {
-			head := temp + "/" + line + ".head"
+			head := temp + "/" + line.(string) + ".head"
 			if err := os.Remove(head); err != nil {
 				return err
 			}
 
-			recv := temp + "/" + line + ".recv"
+			recv := temp + "/" + line.(string) + ".recv"
 			if err := os.Remove(recv); err != nil {
 				return err
 			}
 
-			prodDelete := forward + "/" + line
+			prodDelete := forward + "/" + line.(string)
 			if err := os.Remove(prodDelete); err != nil {
 				return err
 			}
@@ -824,7 +824,7 @@ func actionSmtpForwardDelete(c *routing.Context) error {
 				return err
 			}
 			recvString := string(recvData)
-			re := regexp.MustCompile("(?m)^" + line + `.*$[\r\n]*|[\r\n]+\s+\z`)
+			re := regexp.MustCompile("(?m)^" + line.(string) + `.*$[\r\n]*|[\r\n]+\s+\z`)
 			recvString = re.ReplaceAllString(recvString, "")
 
 			if err := ioutil.WriteFile(recv, []byte(recvString), 0644); err != nil {
@@ -900,7 +900,7 @@ func actionSambaDownload(c *routing.Context) error {
 
 	temp := cfg.Samba.Path.Temp
 	recv := temp + "/smb.conf.recv"
-	if err := ioutil.WriteFile(recv, []byte(line), 0644); err != nil {
+	if err := ioutil.WriteFile(recv, []byte(line.(string)), 0644); err != nil {
 		return err
 	}
 
@@ -932,25 +932,25 @@ func actionSambaCreate(c *routing.Context) error {
 		return err
 	}
 
-	zfs := data.Data["is_zfs"]
+	zfs := int(data.Data["is_zfs"].(float64))
 	quota := data.Data["quota"]
 	path := data.Data["path"]
 	zfsPath := data.Data["zfs_path"]
-	if zfs == "1" {
-		cli := exec.Command("/sbin/zfs", "create", "-o", "refquota="+quota, zfsPath)
+	if zfs == 1 {
+		cli := exec.Command("/sbin/zfs", "create", "-o", "refquota="+quota.(string), zfsPath.(string))
 		output, err := cli.CombinedOutput()
 		if err != nil {
 			return errors.New(err.Error() + ": " + string(output))
 		}
 	} else {
-		cli := exec.Command("/usr/bin/mkdir", "-p", path)
+		cli := exec.Command("/usr/bin/mkdir", "-p", path.(string))
 		output, err := cli.CombinedOutput()
 		if err != nil {
 			return errors.New(err.Error() + ": " + string(output))
 		}
 	}
 
-	cli := exec.Command("/usr/bin/chmod", "777", path)
+	cli := exec.Command("/usr/bin/chmod", "777", path.(string))
 	output, err := cli.CombinedOutput()
 	if err != nil {
 		return errors.New(err.Error() + ": " + string(output))
@@ -968,7 +968,7 @@ func actionSambaCreate(c *routing.Context) error {
 		return err
 	}
 
-	if err := addDataToFile(recv, line); err != nil {
+	if err := addDataToFile(recv, line.(string)); err != nil {
 		if err := rollback(recv, backup); err != nil {
 			return err
 		}
@@ -1009,7 +1009,7 @@ func actionSambaQuota(c *routing.Context) error {
 	quota := data.Data["quota"]
 	zfsPath := data.Data["zfs_path"]
 
-	cli := exec.Command("/sbin/zfs", "set", "refquota="+quota, zfsPath)
+	cli := exec.Command("/sbin/zfs", "set", "refquota="+quota.(string), zfsPath.(string))
 	output, err := cli.CombinedOutput()
 	if err != nil {
 		return errors.New(err.Error() + ": " + string(output))
