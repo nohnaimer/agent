@@ -86,7 +86,7 @@ var (
 )
 
 func readConfig(cfg *Config) error {
-	confFile, err := os.Open("agent.yml")
+	confFile, err := os.Open("/etc/agent/agent.yml")
 	if err != nil {
 		return err
 	}
