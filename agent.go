@@ -230,6 +230,19 @@ func main() {
 
 			return c.Write(Response{200, "Success create smtp forward!"})
 		})
+		forward.Put("/update", func(c *routing.Context) error {
+			if err := actionSmtpDownload(c); err != nil {
+				sentry.CaptureException(err)
+				return c.Write(Response{500, err.Error()})
+			}
+
+			if err := newaliases(); err != nil {
+				sentry.CaptureException(err)
+				return c.Write(Response{500, err.Error()})
+			}
+
+			return c.Write(Response{200, "Success update smtp forward!"})
+		})
 		forward.Put("/rename", func(c *routing.Context) error {
 			if err := actionSmtpForwardRename(c); err != nil {
 				sentry.CaptureException(err)
