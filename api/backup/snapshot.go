@@ -74,14 +74,14 @@ func (s *snapshot) isFsNotExist() bool {
 	if err != nil {
 		message := errors.New(err.Error() + ": " + string(output) + " - File system doesn't exists: " + s.Name)
 		sentry.CaptureException(message)
-		return false
+		return true
 	}
 
-	return true
+	return false
 }
 
 func (s *snapshot) init() {
-	currentSnapshot = s.ZfsPath + "@" + now.Format("2006-02-01")
+	currentSnapshot = s.ZfsPath + "@" + now.Format("2006-01-02")
 
 	switch s.RotationType {
 	case RotatePeriodDay:
@@ -126,7 +126,7 @@ func (s *snapshot) send() error {
 	}
 
 	previousDate := now.AddDate(0, 0, previous)
-	previousSnapshot := s.ZfsPath + "@" + previousDate.Format("2006-02-01")
+	previousSnapshot := s.ZfsPath + "@" + previousDate.Format("2006-01-02")
 
 	if _, err := os.Stat(s.Path + "/.zfs/snapshot/" + previousSnapshot); !os.IsNotExist(err) {
 		if s.isRemoteSnapshotExist() {
@@ -171,7 +171,7 @@ func (s *snapshot) isRemoteFsExist() bool {
 
 func (s *snapshot) isRemoteSnapshotExist() bool {
 	previousDate := now.AddDate(0, 0, previous)
-	previousRemoteSnapshot := s.BackupServerPool + "/" + s.Name + "@" + previousDate.Format("2006-02-01")
+	previousRemoteSnapshot := s.BackupServerPool + "/" + s.Name + "@" + previousDate.Format("2006-01-02")
 	cli := exec.Command("ssh", s.BackupServer, "zfs", "list", previousRemoteSnapshot)
 	_, err := cli.CombinedOutput()
 	return err == nil
@@ -196,7 +196,7 @@ func (s *snapshot) destroyRemoteFs() {
 
 func (s *snapshot) rotate() error {
 	rotationDate := now.AddDate(0, 0, rotation)
-	rotationSnapshot := s.ZfsPath + "@" + rotationDate.Format("2006-02-01")
+	rotationSnapshot := s.ZfsPath + "@" + rotationDate.Format("2006-01-02")
 	cli := exec.Command("/sbin/zfs", "destroy", rotationSnapshot)
 	output, err := cli.CombinedOutput()
 	if err != nil {
@@ -210,7 +210,7 @@ func (s *snapshot) rotate() error {
 	}
 
 	if s.isRemoteSnapshotExist() {
-		rotationRemoteSnapshot := s.BackupServerPool + "/" + s.Name + "@" + rotationDate.Format("2006-02-01")
+		rotationRemoteSnapshot := s.BackupServerPool + "/" + s.Name + "@" + rotationDate.Format("2006-01-02")
 		cli = exec.Command("ssh", s.BackupServer, "zfs", "destroy", rotationRemoteSnapshot)
 		output, err = cli.CombinedOutput()
 		if err != nil {

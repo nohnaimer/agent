@@ -294,7 +294,7 @@ func Run() {
 	router.Get("/", file.Content("ui/index.html"))
 	// serve files under the "ui" subdirectory
 	router.Get("/*", file.Server(file.PathMap{
-		"/": "/ui/",
+		"/": "ui/",
 	}))
 
 	http.Handle("/", router)
