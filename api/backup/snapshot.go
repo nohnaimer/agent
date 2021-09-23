@@ -18,18 +18,18 @@ const (
 )
 
 type SnapshotMap struct {
-	Data map[string]map[int]snapshot
+	Data []snapshot `json:"data"`
 }
 
 type snapshot struct {
-	Name             string
-	Path             string
-	ZfsPath          string
-	BackupServer     string
-	BackupServerPool string
-	RotationPeriod   int
-	RotationType     string
-	IsRemoteBackup   int
+	Name             string `json:"name"`
+	Path             string `json:"path"`
+	ZfsPath          string `json:"zfs_path"`
+	BackupServer     string `json:"backup_server"`
+	BackupServerPool string `json:"backup_server_pool"`
+	RotationPeriod   int    `json:"rotation_period"`
+	RotationType     string `json:"rotation_type"`
+	IsRemoteBackup   int    `json:"is_remote_backup"`
 }
 
 var (
@@ -40,7 +40,7 @@ var (
 )
 
 func (s *SnapshotMap) Backup() error {
-	shares := s.Data["data"]
+	shares := s.Data
 
 	for _, share := range shares {
 		if share.isFsNotExist() {
