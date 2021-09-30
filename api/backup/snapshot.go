@@ -2,6 +2,7 @@ package backup
 
 import (
 	"errors"
+	"fmt"
 	"github.com/getsentry/sentry-go"
 	"os"
 	"os/exec"
@@ -33,13 +34,14 @@ type snapshot struct {
 }
 
 var (
-	now             = time.Now()
+	now             time.Time
 	previous        = 0
 	rotation        = 0
 	currentSnapshot string
 )
 
 func (s *SnapshotMap) Backup() error {
+	now = time.Now()
 	shares := s.Data
 
 	for _, share := range shares {
@@ -94,6 +96,10 @@ func (s *snapshot) init() {
 }
 
 func (s *snapshot) create() error {
+	if s.isSnapshotExist(currentSnapshot) {
+		return nil
+	}
+
 	cli := exec.Command("/sbin/zfs", "snapshot", currentSnapshot)
 	output, err := cli.CombinedOutput()
 	if err != nil {
@@ -129,17 +135,16 @@ func (s *snapshot) send() error {
 	previousSnapshot := s.ZfsPath + "@" + previousDate.Format("2006-01-02")
 
 	if _, err := os.Stat(s.Path + "/.zfs/snapshot/" + previousSnapshot); !os.IsNotExist(err) {
-		if s.isRemoteSnapshotExist() {
-			cli := exec.Command("/sbin/zfs", "send", "-i", previousSnapshot, currentSnapshot, "|", "ssh", s.BackupServer, "zfs", "recv", "-F", s.BackupServerPool+"/"+s.Name)
-			output, err := cli.CombinedOutput()
-			if err != nil {
-				message := errors.New(err.Error() + ": " + string(output) + " - Error send increment snapshot to remote server")
-				sentry.CaptureException(message)
-				return message
-			}
-
-			return nil
+		command := fmt.Sprintf("zfs send -i %s %s | ssh %s zfs recv -F %s/%s", previousSnapshot, currentSnapshot, s.BackupServer, s.BackupServerPool, s.Name)
+		cli := exec.Command("/usr/bin/bash", "-c", command)
+		output, err := cli.CombinedOutput()
+		if err != nil {
+			message := errors.New(err.Error() + ": " + string(output) + " - Error send increment snapshot to remote server")
+			sentry.CaptureException(message)
+			return message
 		}
+
+		return nil
 	}
 
 	if s.isRemoteFsExist() {
@@ -152,7 +157,8 @@ func (s *snapshot) send() error {
 		return err
 	}
 
-	cli := exec.Command("/sbin/zfs", "send", currentSnapshot, "|", "ssh", s.BackupServer, "zfs", "recv", "-F", s.BackupServerPool+"/"+s.Name)
+	command := fmt.Sprintf("zfs send %s | ssh %s zfs recv -F %s/%s", currentSnapshot, s.BackupServer, s.BackupServerPool, s.Name)
+	cli := exec.Command("/usr/bin/bash", "-c", command)
 	output, err := cli.CombinedOutput()
 	if err != nil {
 		message := errors.New(err.Error() + ": " + string(output) + " - Error send snapshot to remote server")
@@ -163,16 +169,21 @@ func (s *snapshot) send() error {
 	return nil
 }
 
+func (s *snapshot) isSnapshotExist(snapshot string) bool {
+	cli := exec.Command("/sbin/zfs", "list", snapshot)
+	_, err := cli.CombinedOutput()
+
+	return err == nil
+}
+
 func (s *snapshot) isRemoteFsExist() bool {
 	cli := exec.Command("ssh", s.BackupServer, "zfs", "list", s.BackupServerPool+"/"+s.Name)
 	_, err := cli.CombinedOutput()
 	return err == nil
 }
 
-func (s *snapshot) isRemoteSnapshotExist() bool {
-	previousDate := now.AddDate(0, 0, previous)
-	previousRemoteSnapshot := s.BackupServerPool + "/" + s.Name + "@" + previousDate.Format("2006-01-02")
-	cli := exec.Command("ssh", s.BackupServer, "zfs", "list", previousRemoteSnapshot)
+func (s *snapshot) isRemoteSnapshotExist(snapshot string) bool {
+	cli := exec.Command("ssh", s.BackupServer, "zfs", "list", snapshot)
 	_, err := cli.CombinedOutput()
 	return err == nil
 }
@@ -190,29 +201,31 @@ func (s *snapshot) createRemoteFs() error {
 }
 
 func (s *snapshot) destroyRemoteFs() {
-	cli := exec.Command("ssh", s.BackupServer, "zfs", "destroy", "-r", s.BackupServerPool+"/"+s.Name)
+	cli := exec.Command("ssh", s.BackupServer, "zfs", "destroy", "-fr", s.BackupServerPool+"/"+s.Name)
 	_, _ = cli.CombinedOutput()
 }
 
 func (s *snapshot) rotate() error {
 	rotationDate := now.AddDate(0, 0, rotation)
 	rotationSnapshot := s.ZfsPath + "@" + rotationDate.Format("2006-01-02")
-	cli := exec.Command("/sbin/zfs", "destroy", rotationSnapshot)
-	output, err := cli.CombinedOutput()
-	if err != nil {
-		message := errors.New(err.Error() + ": " + string(output) + " - Error rotate snapshot: " + rotationSnapshot)
-		sentry.CaptureException(message)
-		return message
+	if s.isSnapshotExist(rotationSnapshot) {
+		cli := exec.Command("/sbin/zfs", "destroy", rotationSnapshot)
+		output, err := cli.CombinedOutput()
+		if err != nil {
+			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate snapshot: " + rotationSnapshot)
+			sentry.CaptureException(message)
+			return message
+		}
 	}
 
 	if s.IsRemoteBackup == RemoteBackupDisable {
 		return nil
 	}
 
-	if s.isRemoteSnapshotExist() {
-		rotationRemoteSnapshot := s.BackupServerPool + "/" + s.Name + "@" + rotationDate.Format("2006-01-02")
-		cli = exec.Command("ssh", s.BackupServer, "zfs", "destroy", rotationRemoteSnapshot)
-		output, err = cli.CombinedOutput()
+	rotationRemoteSnapshot := s.BackupServerPool + "/" + s.Name + "@" + rotationDate.Format("2006-01-02")
+	if s.isRemoteSnapshotExist(rotationRemoteSnapshot) {
+		cli := exec.Command("ssh", s.BackupServer, "zfs", "destroy", rotationRemoteSnapshot)
+		output, err := cli.CombinedOutput()
 		if err != nil {
 			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate remote snapshot: " + rotationRemoteSnapshot)
 			sentry.CaptureException(message)
