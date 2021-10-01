@@ -134,7 +134,7 @@ func (s *snapshot) send() error {
 	previousDate := now.AddDate(0, 0, previous)
 	previousSnapshot := s.ZfsPath + "@" + previousDate.Format("2006-01-02")
 
-	if _, err := os.Stat(s.Path + "/.zfs/snapshot/" + previousSnapshot); !os.IsNotExist(err) {
+	if _, err := os.Stat(s.Path + "/.zfs/snapshot/" + previousDate.Format("2006-01-02")); !os.IsNotExist(err) {
 		command := fmt.Sprintf("zfs send -i %s %s | ssh %s zfs recv -F %s/%s", previousSnapshot, currentSnapshot, s.BackupServer, s.BackupServerPool, s.Name)
 		cli := exec.Command("/usr/bin/bash", "-c", command)
 		output, err := cli.CombinedOutput()
