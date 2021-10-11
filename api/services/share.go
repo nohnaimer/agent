@@ -157,7 +157,7 @@ func (s *ShareString) Delete() error {
 		return nil
 	}
 
-	cli = exec.Command("/sbin/zfs", "destroy", "-r", zfsPath.(string))
+	cli = exec.Command("/sbin/zfs", "destroy", "-fr", zfsPath.(string))
 	output, err := cli.CombinedOutput()
 	if err != nil {
 		return errors.New(err.Error() + ": " + string(output))
@@ -169,7 +169,7 @@ func (s *ShareString) Delete() error {
 		return nil
 	}
 
-	cli = exec.Command("ssh", backupServer.(string), "zfs", "destroy", "-r", backupServerPool.(string)+"/"+name.(string))
+	cli = exec.Command("ssh", backupServer.(string), "zfs", "destroy", "-fr", backupServerPool.(string)+"/"+name.(string))
 	output, err = cli.CombinedOutput()
 	if err != nil {
 		return errors.New(err.Error() + ": " + string(output))
