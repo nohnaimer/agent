@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os/exec"
 )
@@ -146,18 +147,23 @@ func (s *ShareString) Quota() error {
 }
 
 func (s *ShareString) Delete() error {
+	line := s.Data["samba"]
+
+	err := download(line)
+
 	zfsPath := s.Data["zfs_path"]
 	backupServer := s.Data["backup_server"]
 	backupServerPool := s.Data["backup_server_pool"]
 	name := s.Data["name"]
 
 	cli := exec.Command("/sbin/zfs", "list", zfsPath.(string))
-	_, err := cli.CombinedOutput()
+	_, err = cli.CombinedOutput()
 	if err != nil {
 		return nil
 	}
 
-	cli = exec.Command("/sbin/zfs", "destroy", "-fr", zfsPath.(string))
+	command := fmt.Sprintf("/sbin/zfs destroy -fr %s", zfsPath.(string))
+	cli = exec.Command("/usr/bin/bash", "-c", command)
 	output, err := cli.CombinedOutput()
 	if err != nil {
 		return errors.New(err.Error() + ": " + string(output))
@@ -169,15 +175,14 @@ func (s *ShareString) Delete() error {
 		return nil
 	}
 
-	cli = exec.Command("ssh", backupServer.(string), "zfs", "destroy", "-fr", backupServerPool.(string)+"/"+name.(string))
+	command = fmt.Sprintf("ssh %s zfs destroy -fr %s/%s", backupServer.(string), backupServerPool.(string), name.(string))
+	cli = exec.Command("/usr/bin/bash", "-c", command)
 	output, err = cli.CombinedOutput()
 	if err != nil {
 		return errors.New(err.Error() + ": " + string(output))
 	}
 
-	line := s.Data["samba"]
-
-	return download(line)
+	return nil
 }
 
 //func sambaTestConfig(conf string) error {
