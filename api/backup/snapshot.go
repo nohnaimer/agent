@@ -113,7 +113,9 @@ func (s *snapshot) create() error {
 
 func (s *snapshot) createBackupLink() {
 	if _, err := os.Stat(s.Path + "/___backups___"); os.IsNotExist(err) {
-		cli := exec.Command("/usr/bin/ln", "-s", s.Path+"/.zfs/snapshot", s.Path+"/___backups___")
+		cli := exec.Command("/usr/bin/cd", s.Path)
+		_, _ = cli.CombinedOutput()
+		cli = exec.Command("/usr/bin/ln", "-s", ".zfs/snapshot", "___backups___")
 		_, _ = cli.CombinedOutput()
 	}
 }
@@ -211,7 +213,7 @@ func (s *snapshot) rotate() error {
 	rotationDate := now.AddDate(0, 0, rotation)
 	rotationSnapshot := s.ZfsPath + "@" + rotationDate.Format("2006-01-02")
 	if s.isSnapshotExist(rotationSnapshot) {
-		cli := exec.Command("/sbin/zfs", "destroy", rotationSnapshot)
+		cli := exec.Command("/sbin/zfs", "destroy", "-fr", rotationSnapshot)
 		output, err := cli.CombinedOutput()
 		if err != nil {
 			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate snapshot: " + rotationSnapshot)
@@ -226,7 +228,7 @@ func (s *snapshot) rotate() error {
 
 	rotationRemoteSnapshot := s.BackupServerPool + "/" + s.Name + "@" + rotationDate.Format("2006-01-02")
 	if s.isRemoteSnapshotExist(rotationRemoteSnapshot) {
-		cli := exec.Command("ssh", s.BackupServer, "zfs", "destroy", rotationRemoteSnapshot)
+		cli := exec.Command("ssh", s.BackupServer, "zfs", "destroy", "-fr", rotationRemoteSnapshot)
 		output, err := cli.CombinedOutput()
 		if err != nil {
 			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate remote snapshot: " + rotationRemoteSnapshot)
