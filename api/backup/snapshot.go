@@ -113,10 +113,14 @@ func (s *snapshot) create() error {
 
 func (s *snapshot) createBackupLink() {
 	if _, err := os.Stat(s.Path + "/___backups___"); os.IsNotExist(err) {
-		cli := exec.Command("/usr/bin/cd", s.Path)
-		_, _ = cli.CombinedOutput()
-		cli = exec.Command("/usr/bin/ln", "-s", ".zfs/snapshot", "___backups___")
-		_, _ = cli.CombinedOutput()
+		err = os.Chdir(s.Path)
+		if err != nil {
+			message := errors.New(err.Error() + ". Error createBackupLink: " + s.Name)
+			sentry.CaptureException(message)
+		} else {
+			cli := exec.Command("/usr/bin/ln", "-s", ".zfs/snapshot", "___backups___")
+			_, _ = cli.CombinedOutput()
+		}
 	}
 }
 
