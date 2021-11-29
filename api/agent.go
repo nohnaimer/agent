@@ -2,7 +2,6 @@ package api
 
 import (
 	"agent/api/services"
-	"errors"
 	"github.com/getsentry/sentry-go"
 	"github.com/go-ozzo/ozzo-routing/v2"
 	"github.com/go-ozzo/ozzo-routing/v2/access"
@@ -147,9 +146,6 @@ func Run() {
 
 			return c.Write(response{200, "Success delete dhcp host!"})
 		})
-	} else {
-		message := errors.New("Service dhcp is disabled in /etc/agent/agent.yml")
-		sentry.CaptureException(message)
 	}
 
 	if Settings.Smtp.Enabled {
@@ -223,9 +219,6 @@ func Run() {
 
 			return c.Write(response{200, "Success delete smtp user!"})
 		})
-	} else {
-		message := errors.New("Service smtp is disabled in /etc/agent/agent.yml")
-		sentry.CaptureException(message)
 	}
 
 	if Settings.Squid.Enabled {
@@ -239,9 +232,6 @@ func Run() {
 
 			return c.Write(response{200, "Success squid download!"})
 		})
-	} else {
-		message := errors.New("Service squid is disabled in /etc/agent/agent.yml")
-		sentry.CaptureException(message)
 	}
 
 	if Settings.Techmail.Enabled {
@@ -255,9 +245,6 @@ func Run() {
 
 			return c.Write(response{200, "Success techmail download!"})
 		})
-	} else {
-		message := errors.New("Service techmail is disabled in /etc/agent/agent.yml")
-		sentry.CaptureException(message)
 	}
 
 	if Settings.Samba.Enabled {
@@ -305,9 +292,6 @@ func Run() {
 
 			return c.Write(response{200, "Success backup samba server!"})
 		})
-	} else {
-		message := errors.New("Service samba is disabled in /etc/agent/agent.yml")
-		sentry.CaptureException(message)
 	}
 
 	// serve index file
