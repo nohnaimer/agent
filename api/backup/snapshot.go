@@ -129,10 +129,10 @@ func (s *snapshot) clone() error {
 		return nil
 	}
 
-	return s.send()
+	return s.sendIncrement()
 }
 
-func (s *snapshot) send() error {
+func (s *snapshot) sendIncrement() error {
 	if _, err := os.Stat(s.Path + "/.zfs/snapshot/" + currentSnapshot); os.IsNotExist(err) {
 		return nil
 	}
@@ -144,17 +144,19 @@ func (s *snapshot) send() error {
 		if _, err := os.Stat(s.Path + "/.zfs/snapshot/" + previousDate.Format("2006-01-02")); !os.IsNotExist(err) {
 			command := fmt.Sprintf("zfs send -i %s %s | ssh %s zfs recv -F %s/%s", previousSnapshot, currentSnapshot, s.BackupServer, s.BackupServerPool, s.Name)
 			cli := exec.Command("/usr/bin/bash", "-c", command)
-			output, err := cli.CombinedOutput()
+			_, err := cli.CombinedOutput()
 			if err != nil {
-				message := errors.New(err.Error() + ": " + string(output) + " - Error send increment snapshot to remote server")
-				sentry.CaptureException(message)
-				return message
+				return s.sendSnapshot()
 			}
 
 			return nil
 		}
 	}
 
+	return s.sendSnapshot()
+}
+
+func (s *snapshot) sendSnapshot() error {
 	if s.isRemoteFsExist() {
 		s.destroyRemoteFs()
 	}
