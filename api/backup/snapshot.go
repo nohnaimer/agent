@@ -55,16 +55,16 @@ func (s *SnapshotMap) Backup() error {
 
 		share.init()
 
+		share.createBackupLink()
+
+		_ = share.rotate()
+
 		err := share.create()
 		if err != nil {
 			continue
 		}
 
-		share.createBackupLink()
-
 		_ = share.clone()
-
-		_ = share.rotate()
 	}
 
 	return nil
@@ -95,6 +95,50 @@ func (s *snapshot) init() {
 	}
 }
 
+func (s *snapshot) createBackupLink() {
+	if _, err := os.Stat(s.Path + "/___backups___"); os.IsNotExist(err) {
+		err = os.Chdir(s.Path)
+		if err != nil {
+			message := errors.New(err.Error() + ". Error createBackupLink: " + s.Name)
+			sentry.CaptureException(message)
+		} else {
+			cli := exec.Command("/usr/bin/ln", "-s", ".zfs/snapshot", "___backups___")
+			_, _ = cli.CombinedOutput()
+		}
+	}
+}
+
+func (s *snapshot) rotate() error {
+	rotationDate := now.AddDate(0, 0, rotation)
+	rotationSnapshot := s.ZfsPath + "@" + rotationDate.Format("2006-01-02")
+	if s.isSnapshotExist(rotationSnapshot) {
+		cli := exec.Command("/sbin/zfs", "destroy", "-fr", rotationSnapshot)
+		output, err := cli.CombinedOutput()
+		if err != nil {
+			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate snapshot: " + rotationSnapshot)
+			sentry.CaptureException(message)
+			return message
+		}
+	}
+
+	if s.IsRemoteBackup == RemoteBackupDisable {
+		return nil
+	}
+
+	rotationRemoteSnapshot := s.BackupServerPool + "/" + s.Name + "@" + rotationDate.Format("2006-01-02")
+	if s.isRemoteSnapshotExist(rotationRemoteSnapshot) {
+		cli := exec.Command("ssh", s.BackupServer, "zfs", "destroy", "-fr", rotationRemoteSnapshot)
+		output, err := cli.CombinedOutput()
+		if err != nil {
+			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate remote snapshot: " + rotationRemoteSnapshot)
+			sentry.CaptureException(message)
+			return message
+		}
+	}
+
+	return nil
+}
+
 func (s *snapshot) create() error {
 	if s.isSnapshotExist(currentSnapshot) {
 		return nil
@@ -109,19 +153,6 @@ func (s *snapshot) create() error {
 	}
 
 	return nil
-}
-
-func (s *snapshot) createBackupLink() {
-	if _, err := os.Stat(s.Path + "/___backups___"); os.IsNotExist(err) {
-		err = os.Chdir(s.Path)
-		if err != nil {
-			message := errors.New(err.Error() + ". Error createBackupLink: " + s.Name)
-			sentry.CaptureException(message)
-		} else {
-			cli := exec.Command("/usr/bin/ln", "-s", ".zfs/snapshot", "___backups___")
-			_, _ = cli.CombinedOutput()
-		}
-	}
 }
 
 func (s *snapshot) clone() error {
@@ -213,35 +244,4 @@ func (s *snapshot) createRemoteFs() error {
 func (s *snapshot) destroyRemoteFs() {
 	cli := exec.Command("ssh", s.BackupServer, "zfs", "destroy", "-fr", s.BackupServerPool+"/"+s.Name)
 	_, _ = cli.CombinedOutput()
-}
-
-func (s *snapshot) rotate() error {
-	rotationDate := now.AddDate(0, 0, rotation)
-	rotationSnapshot := s.ZfsPath + "@" + rotationDate.Format("2006-01-02")
-	if s.isSnapshotExist(rotationSnapshot) {
-		cli := exec.Command("/sbin/zfs", "destroy", "-fr", rotationSnapshot)
-		output, err := cli.CombinedOutput()
-		if err != nil {
-			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate snapshot: " + rotationSnapshot)
-			sentry.CaptureException(message)
-			return message
-		}
-	}
-
-	if s.IsRemoteBackup == RemoteBackupDisable {
-		return nil
-	}
-
-	rotationRemoteSnapshot := s.BackupServerPool + "/" + s.Name + "@" + rotationDate.Format("2006-01-02")
-	if s.isRemoteSnapshotExist(rotationRemoteSnapshot) {
-		cli := exec.Command("ssh", s.BackupServer, "zfs", "destroy", "-fr", rotationRemoteSnapshot)
-		output, err := cli.CombinedOutput()
-		if err != nil {
-			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate remote snapshot: " + rotationRemoteSnapshot)
-			sentry.CaptureException(message)
-			return message
-		}
-	}
-
-	return nil
 }
