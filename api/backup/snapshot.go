@@ -117,7 +117,6 @@ func (s *snapshot) rotate() error {
 		if err != nil {
 			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate snapshot: " + rotationSnapshot)
 			sentry.CaptureException(message)
-			return message
 		}
 	}
 
@@ -132,7 +131,6 @@ func (s *snapshot) rotate() error {
 		if err != nil {
 			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate remote snapshot: " + rotationRemoteSnapshot)
 			sentry.CaptureException(message)
-			return message
 		}
 	}
 
