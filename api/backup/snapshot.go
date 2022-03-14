@@ -6,6 +6,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -113,10 +114,17 @@ func (s *snapshot) rotate() error {
 	rotationSnapshot := s.ZfsPath + "@" + rotationDate.Format("2006-01-02")
 	if s.isSnapshotExist(rotationSnapshot) {
 		cli := exec.Command("/sbin/zfs", "destroy", "-fr", rotationSnapshot)
-		output, err := cli.CombinedOutput()
+		_, err := cli.CombinedOutput()
 		if err != nil {
-			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate snapshot: " + rotationSnapshot)
-			sentry.CaptureException(message)
+			err = s.killLockedProcesses(rotationDate)
+			if err == nil {
+				cli = exec.Command("/sbin/zfs", "destroy", "-fr", rotationSnapshot)
+				output, err := cli.CombinedOutput()
+				if err != nil {
+					message := errors.New(err.Error() + ": " + string(output) + " - Error rotate snapshot: " + rotationSnapshot)
+					sentry.CaptureException(message)
+				}
+			}
 		}
 	}
 
@@ -131,6 +139,33 @@ func (s *snapshot) rotate() error {
 		if err != nil {
 			message := errors.New(err.Error() + ": " + string(output) + " - Error rotate remote snapshot: " + rotationRemoteSnapshot)
 			sentry.CaptureException(message)
+		}
+	}
+
+	return nil
+}
+
+func (s *snapshot) killLockedProcesses(rotationDate time.Time) error {
+	command := fmt.Sprintf("/usr/bin/smbstatus | grep %s | grep %s | awk '{print $1}'", s.Name, rotationDate.Format("2006-01-02"))
+	cli := exec.Command("/usr/bin/bash", "-c", command)
+	output, err := cli.CombinedOutput()
+	if err != nil {
+		message := errors.New(err.Error() + ": " + string(output) + " - Error get locked processes!")
+		sentry.CaptureException(message)
+		return message
+	}
+
+	data := strings.Split(string(output), "\n")
+	data = unique(data)
+
+	for _, id := range data {
+		command = fmt.Sprintf("/usr/bin/kill -9 %s", id)
+		cli = exec.Command("/usr/bin/bash", "-c", command)
+		output, err = cli.CombinedOutput()
+		if err != nil {
+			message := errors.New(err.Error() + ": " + string(output) + " - Error kill locked process id = " + id)
+			sentry.CaptureException(message)
+			return message
 		}
 	}
 
@@ -242,4 +277,16 @@ func (s *snapshot) createRemoteFs() error {
 func (s *snapshot) destroyRemoteFs() {
 	cli := exec.Command("ssh", s.BackupServer, "zfs", "destroy", "-fr", s.BackupServerPool+"/"+s.Name)
 	_, _ = cli.CombinedOutput()
+}
+
+func unique(slice []string) []string {
+	keys := make(map[string]bool)
+	var list []string
+	for _, entry := range slice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }
